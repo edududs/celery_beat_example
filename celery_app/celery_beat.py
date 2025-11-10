@@ -20,6 +20,6 @@ celery_app.conf.beat_schedule_filename = schedule_filename
 celery_app.conf.beat_schedule = {
     "periodic-task": {
         "task": "celery_app.tasks.periodic_task",
-        "schedule": timedelta(seconds=10),  # Executa a cada 10 segundos
+        "schedule": timedelta(seconds=30),  # Executa a cada 30 segundos
     },
 }
