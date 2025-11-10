@@ -1,0 +1,85 @@
+services:
+  # ============================================================================
+  # INFRAESTRUTURA (Profile: infra)
+  # ============================================================================
+  rabbit:
+    image: rabbitmq:management
+    profiles:
+      - infra
+    ports:
+      - 5672:5672
+      - 15672:15672
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  redis:
+    image: redis/redis-stack:latest
+    profiles:
+      - infra
+    ports:
+      - 6379:6379
+      - 8001:8001
+    volumes:
+      - redis_data:/data
+
+  # ============================================================================
+  # APLICATIVOS (Profile: apps)
+  # ============================================================================
+  celery-beat:
+    build: .
+    profiles:
+      - apps
+    command: celery -A celery_app.celery_beat beat --loglevel=info
+    volumes:
+      - ./celery_app:/app/celery_app
+      - celerybeat_data:/app
+    depends_on:
+      - rabbit
+      - redis
+    environment:
+      - CELERY_BROKER_HOST=rabbit
+      - CELERY_REDIS_HOST=redis
+      - CELERY_BEAT_SCHEDULE_FILENAME=/app/celerybeat-schedule
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  celery-worker:
+    build: .
+    profiles:
+      - apps
+    command: celery -A celery_app.celery_app worker --loglevel=info
+    volumes:
+      - ./celery_app:/app/celery_app
+    depends_on:
+      - rabbit
+      - redis
+    environment:
+      - CELERY_BROKER_HOST=rabbit
+      - CELERY_REDIS_HOST=redis
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  flower:
+    build: .
+    profiles:
+      - apps
+    command: celery -A celery_app.celery_app flower --port=5555 --broker=amqp://admin:admin@rabbit:5672// --broker_api=http://admin:admin@rabbit:15672/api/
+    ports:
+      - 5555:5555
+    depends_on:
+      - rabbit
+      - redis
+      - celery-worker
+    environment:
+      - CELERY_BROKER_HOST=rabbit
+      - CELERY_REDIS_HOST=redis
+
+volumes:
+  rabbitmq_data:
+  redis_data:
+  celerybeat_data:
